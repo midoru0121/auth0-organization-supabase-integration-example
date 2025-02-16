@@ -1,94 +1,94 @@
-[日本語](https://github.com/midoru0121/auth0-supabase-integration-example/blob/main/README.ja.md)
+[英語](https://github.com/midoru0121/auth0-supabase-integration-example/blob/main/README.md)
 
 # nextjs-auth0-supabase-integration-example
 
-Here is the basic flow of the application.
-As a prerequisite, the signing algorithms for both `Supabase` and `Auth0` should be unified as `RS256`.
+アプリケーションの基本的なフローです。
+前提として、 `Supabase` と `Auth0` の署名アルゴリズムは `RS256` で統一するものとします。
 
-- Authenticate users using Auth0
-- After logging in with Auth0, assign roles to users that were previously created in Auth0
-- Include these roles in the payload, sign it with Supabase's JWT secret, and store it in the @auth0/nextjs-auth0 session
-  - This JWT can then be retrieved as a session within Next.js RSC. This JWT is used as an access token for Supabase.
-- Access Supabase from within Next.js RSC (attaching the above access token as a Bearer token in the request)
-- On the Supabase side, decode the JWT for RLS policies and verify if roles are included
-  - If roles are not included, deny access to tables
-  - If roles are included, allow access to tables
+- Auth0を使用してユーザーを認証します。
+- Auth0でログイン直後に、事前にAuth0で作成したロールをユーザーに付与します。
+- 上記のロールをペイロードに含め、SupabaseのJWTシークレットで署名し、それを@auth0/nextjs-auth0セッションに保存します。
+  - 以降、このJWTはNext.jsのRSC内部でセッションとして取得可能です。このJWTはSupabaseへのアクセストークンとして使用されます。
+- Next.jsのRSC内部からSupabaseにアクセスします（このとき、上記のアクセストークンをBearerトークンとしてリクエストに付与します）。
+- Supabase側で、RLSポリシー用のJWTをデコードし、ロールが含まれているかを確認します。
+  - ロールが含まれていない場合、テーブルへのアクセスを拒否します。
+  - ロールが含まれている場合、テーブルへのアクセスを許可します。
 
-## Auth0 Setup
+## Auth0の設定
 
-### Creating an Auth0 Application
+### Auth0アプリケーションの作成
 
-After registering with Auth0, create an application by selecting `Regular Web Applications`.
+Auth0に登録後、アプリケーションを作成して、 `Regular Web Applications` を選択して、作成します。
 
-Click on `Settings` to move to the configuration page.
+`Settings` をクリックして、設定に移動します。
 
 ![Image](https://github.com/user-attachments/assets/06465bbf-7b3a-4334-836e-c9bf1bc054cd)
 
-Note down the `Domain`, `Client Id`, and `Client Secret`. These will be used later.
+`Domain`, `Client Id`, `Client Secret` を書き留めておきます。これらは後で使用します。
 
 ![Image](https://github.com/user-attachments/assets/644b5421-12aa-4583-853f-28940824ff17)
 
-Set `http://localhost:3000/api/auth/callback` in Allowed Callback URLs.
-Set `http://localhost:3000` in Allowed Logout URLs.
+Allowed Callback URLsに `http://localhost:3000/api/auth/callback` を設定します。
+Allowed Logout URLsに `http://localhost:3000` を設定します。
 
 ![Image](https://github.com/user-attachments/assets/05f17c99-4447-46a3-9816-57333af1aafb)
 
-Set the OAuth and JSON Web Token Signature to `RS256`.
-Ensure that `OIDC Conformant` is checked.
+そして、OAuth and set JSON Web Token Signature を `RS256` に設定します。
+そして、`OIDC Conformant` にチェックが入っていることをチェックします。
 
 ![Image](https://github.com/user-attachments/assets/59f1898e-18ef-47cc-a173-9b0ed2b6c803)
 
-Go to `Connection` and set up `google-oauth-2` to enable sign-up with Google accounts.
+`Connection` に移動して、 `google-oauth-2` を設定して、Googleアカウントでサインアップできるようにします。
 
 ![googleOAuthConnection](https://github.com/user-attachments/assets/28683d31-91ee-4f2b-a41e-75044644a713)
 
-### Setting up Auth0 Management API
+### Auth0 Management APIの設定
 
-Select Auth0 Management API, choose `Machine to Machine Applications`, and check the `Authorized button`. Then open the details.
+Auth0 Management APIを選択し、`Machine to Machine Applications`を選択して、`Authrozedボタン` をチェックします。そして詳細を開きます。
 
 ![MachineToMachineApplications](https://github.com/user-attachments/assets/20cfbfd0-c189-444e-9cd8-fc492f2c7149)
 
 ![SelectAuth0ManagementAPI](https://github.com/user-attachments/assets/91b68db3-4d99-4cca-8628-40c67225a69d)
 
-Add `read:users`, `update:users`, `read:roles` as Permissions.
+`read:users`, `update:users`, `read:roles` 権限をPermissionとして追加します。
 
 ![permissions](https://github.com/user-attachments/assets/0761dd70-b93b-401f-8bed-b08aabe6bfce)
 
-### Creating Roles
+### Roleを作成する
 
-Click on `Roles` and create an `Authenticated` role. This will be assigned to users as the default role.
+`Roles` をクリックして `Autenticated` ロールを作成します。これをデフォルトのロールとしてユーザーにアサインするようにします。
 
 ![IcreateRole1](https://github.com/user-attachments/assets/516318f3-3ff7-4528-9b0b-c0bf3f375cd3)
 
 ![IcreateRole2](https://github.com/user-attachments/assets/31872540-82d5-4527-b526-af33a1f21b00)
 
-Note down the `Role ID` of the created `Authenticated` role. We'll use it later.
+作成した `Authenticated` ロールの `Role ID` を書き留めておきます。後ほど使います。
 
 ![createRole3](https://github.com/user-attachments/assets/15639ae2-9c48-41ce-90b3-11e3fdcd74d6)
 
-## Setting up Auth0 Post Login Action
+## Setting up Auth0 Post Login Action.
 
-To assign default roles to users upon login, we'll set up a `Post Login Action`.
+ユーザーのログイン時に、デフォルトロールを付与するために `Post Login Action` を設定します。
 
-Select `Triggers` under `Actions`, then click on `post-login`.
+`Actions` の `Triggers` を選択、 `post-login` をクリックします。
 
 ![CreateAction](https://github.com/user-attachments/assets/6ad9758a-3601-4017-be23-1f6126e0e2a1)
 
-Select `Build from scratch` from the menu.
+メニューから `Build from scratch` を選択します。
 
 ![CreateAction2](https://github.com/user-attachments/assets/af677761-be0a-4d67-8104-6957e3fab4fc)
 
-Name the Action and click `Create`.
+Actionを命名して `Create` をクリックします。
 
 ![CreateAction3](https://github.com/user-attachments/assets/7809b2d4-755f-4c4d-ac36-01a10d02726a)
 
-Select `Secrets` and add `DOMAIN`, `CLIENT_SECRET`, `CLIENT_ID`, and `DEFAULT_ROLE_ID`.
+`Secrets` を選択して、`DOMAIN`、`CLIENT_SECRET`、`CLIENT_ID`、 `DEFAULT_ROLE_ID` を追加します。
 
-You can find `DOMAIN`, `CLIENT_SECRET`, and `CLIENT_ID` in the application settings screen. `DEFAULT_ROLE_ID` is the ID of the `Authenticated` role we created earlier.
+`DOMAIN`、`CLIENT_SECRET`、`CLIENT_ID`はアプリケーションの設定画面から参照できます。`DEFAULT_ROLE_ID` は先程作った、 `Authenticated` ロールのIDです。
 
 ![CreateAction5](https://github.com/user-attachments/assets/c4ff31d2-a28e-48ba-ae40-3548cbb39898)
 
-Click `Add Dependency` and add `auth0` and `axios`.
+`Add Dependency` をクリックして `auth0` と `axios` を追加します。
 
 ![createAction8](https://github.com/user-attachments/assets/cd519d3d-4e29-4f06-9456-accbc80fe118)
 
@@ -96,23 +96,25 @@ Click `Add Dependency` and add `auth0` and `axios`.
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
-  // Import Axios
+  // Axiosをインポート
+
   const axios = require("axios").default;
 
-  // Import Auth0 Management API client
+  // Auth0 Management APIクライアントをインポート
+
   const { ManagementClient } = require("auth0");
 
-  // Define namespace for custom claims
+  // カスタムクレーム用の名前空間を定義
   const roleNamespace = "https://auth0-supabase-interation-example.com/roles";
 
-  // If user already has roles, end processing
+  // ユーザーが既にロールを持っている場合は処理を終了
   if (
     event.authorization &&
     event.authorization.roles &&
     event.authorization.roles.length > 0
   ) {
     console.log("The user has roles.");
-    // Set existing roles as custom claims
+    // 既存のロールをカスタムクレームとして設定
     const roles = event.authorization.roles.join(",");
     api.idToken.setCustomClaim(roleNamespace, roles);
 
@@ -120,7 +122,7 @@ exports.onExecutePostLogin = async (event, api) => {
   }
 
   try {
-    // Get access token for Management API
+    // Management API用のアクセストークンを取得
     const options = {
       method: "POST",
       url: `https://${event.secrets.DOMAIN}/oauth/token`,
@@ -138,19 +140,19 @@ exports.onExecutePostLogin = async (event, api) => {
 
     const response = await axios.request(options);
 
-    // Initialize Management API client
+    // Management APIクライアントを初期化
     const management = new ManagementClient({
       domain: event.secrets.DOMAIN,
       token: response.data.access_token,
     });
 
-    // Assign roles to user
+    // ユーザーにロールを割り当て
     const params = { id: event.user.user_id };
     const data = { roles: [event.secrets.DEFAULT_ROLE_ID] };
 
     await management.users.assignRoles(params, data);
 
-    // Get role details from API
+    // APIからロールの詳細情報を取得
     const roleResponse = await axios.get(
       `https://${event.secrets.DOMAIN}/api/v2/roles/${event.secrets.DEFAULT_ROLE_ID}`,
       {
@@ -159,84 +161,84 @@ exports.onExecutePostLogin = async (event, api) => {
         },
       }
     );
-    // Set user's role name as custom claim in ID token
+    // ユーザーのロール名をIDトークンのカスタムクレームとして設定
     api.idToken.setCustomClaim(roleNamespace, roleResponse.data.name);
 
     console.log("Success");
   } catch (e) {
-    // Log error
+    // エラーをログに出力
     console.log(e);
   }
 };
 ```
 
-After pasting, click `Deploy`.
+貼り付け終わったら、 `Deploy` をクリックします。
 
 ![CreateAction4](https://github.com/user-attachments/assets/e2082079-6b8c-48df-a2e1-4c458687fb9d)
 
-Open the `post-login` settings and set the action you just deployed immediately after `User Logged In`.
-This will make the action run when users log in to Auth0, assigning the `Authenticated` role to all users.
+先ほどの `post-login` の設定を開き、先ほど `Deploy` したアクションを `User Logged In` の直後にセットします。
+これで、ユーザーがAuth0でログインしたときに、このアクションが走るようになり、すべてのユーザーに `Authenticated` ロールがアサインされるようになります。
 
 ![createAction7](https://github.com/user-attachments/assets/eb3e4872-4f25-4169-8902-8c2a16b8a79c)
 
 ### Organizationの作成
 
-Click on Organizations and select `Add Organization`. Here, we will create an organization called `example-organization`.
+Organizationsをクリックして、 `Add Organization` を選択します。ここでは `example-organization` という organizationを作ります。
 
 ![Add Organization](https://github.com/user-attachments/assets/713e1f17-b073-467f-8555-1ea039317eef)
 
-Click on `Enable Connection` and enable `google-oauth2`.
+`Enable Connection` をクリックして、 `google-oauth2` を許可します。
 
 ![Enable Connection](https://github.com/user-attachments/assets/b5df03ed-7c0b-427a-8499-41ab1432fa45)
 
 ![Enable Google Oauth](https://github.com/user-attachments/assets/291898a5-52ba-4c75-8d69-718b0878f4ce)
 
-Open the `Organizations` section in `Applications`, select `Business Users`. Then, select `prompt for Organization` in the Login Flow.
+`Applications` の `Organizations` の項目を開き `Business Users` を選択します。そして、 Login Flow で `prompt for Organization` を選択します。
 
 ![Application Organization](https://github.com/user-attachments/assets/57d87172-58a2-44bb-85e7-3a576f9546e6)
 
 ![Login Flow Prompt for Organization](https://github.com/user-attachments/assets/2a43831b-8ff7-491a-b771-8012e02d6176)
 
-Next, set the Tenant Login URI in `Advanced` under `Tenant Settings`. Since only URLs starting with `https://` are allowed, enter `https://127.0.0.1:3000/`.
+次に `Tenant Settings` の `Advanced` でTenant Login URIを設定します。 `https://` で始まるURLしか、許可されないので、 `https://127.0.0.1:3000/` を入力します。
 
 ![Set Tenant Login URI](https://github.com/user-attachments/assets/cd95ec9e-d34f-44d2-b318-37d79466f1e7)
 
-Next, let's invite a Member to the `Organization` we just created.
-Send an invitation email to your `Gmail address`.
+次に、先ほど作った `Organization` にMemberを招待します。
+自分が持っている `gmailのアドレス` に向けて招待メールを送ります。
 
 ![Invite Member](https://github.com/user-attachments/assets/9f12530d-3d56-4cf2-8489-26c20304edaa)
 
-After the invitation is complete, open `Members` and add the Gmail address above as a Member. You won't be able to log in unless you `Add Members` here.
+招待が完了したら、 `Members` を開き、上記の gmail アドレスを Memberとして追加しておきます。ここで `Add Members` しないとログインできません。
 
 ![Add Member](https://github.com/user-attachments/assets/45f1d0de-b2d2-4b00-8316-44cc24b166ea)
 
 ### 2: Creating a Supabase project
 
-After registering with Supabase, go to Settings -> API and note down the `Project URL`, `anon key` and `JWT_SECRET`.
+Supabaseに登録後、 Settings -> API に移動して、 `Project URL` , `anon key` と `JWT_SECRET` を書き留めておきます。
 
 ![APISetting](https://github.com/user-attachments/assets/601509da-8834-4156-8106-c145defa5710)
 
 ![jwtsecret](https://github.com/user-attachments/assets/887a3b56-2f70-4dce-be12-e53b1bb52556)
 
-Create a `todo table`.
+`todoテーブル` を作成します。
 
 ![createTable](https://github.com/user-attachments/assets/d3f8d608-2219-4882-8340-2542a28d1810)
 
-Add a `title` column (type: text) and click `Save`.
+`title` (text型) カラムを追加して、 `Save` をクリックします。
 
 ![createTable2](https://github.com/user-attachments/assets/ffdaa8a1-4982-4589-a6a8-49024cea5946)
 
-Also, create a column called `organizationId` with type `text`.
+また、 `organizationId` というカラムを `text型` で作っておきます。
 
 ![Todotable](https://github.com/user-attachments/assets/7f4f03e9-6c94-4ca4-bee0-d6bbffeb2f4e)
 
-Next, create `RLS policies` for the `todo` table.
+次に、 `todo` テーブルの `RLSポリシー` を作成します。
 
 ![SupabaseRunPoliciesSQL](https://github.com/user-attachments/assets/5b65d649-de0c-4880-94c7-81df8127f9cf)
 
-Copy and paste this SQL into Supabase's `SQL Editor` and click `Run`.
+こちらのSQLを Supabaseの `SQL Editor` にコピー&ペーストして `Run` します。
 
-Set up RLS policies for the todo table. This prohibits `INSERT` operations from users who don't have the `Authenticated` role set in `Auth0`. For `SELECT`, `UPDATE`, and `DELETE` operations, it prohibits actions from users whose organizationId doesn't match.
+todoテーブルのRLSポリシーを設定します。 `Auth0` で設定した `Authenticated` ロールを持たないユーザー以外からの `INSERT` を禁止します。 `SELECT` , `UPDATE` , `DELETE` に関しては、organizationIdが一致していないユーザーからの操作を禁止します。
 
 ```sql
 DROP POLICY IF EXISTS "JWT Authenticated can insert todo" ON public.todo;
@@ -292,20 +294,20 @@ USING (
 
 ```
 
-If created successfully, the `Policies` screen should look like the following.
+無事に作成されていれば、 `Policies` 画面で 下記の表示になります。
 
 ![SupabasePolicies](https://github.com/user-attachments/assets/fe9adae7-88ab-4388-8ed4-26e1f07074c7)
 
-### 3 Launching the Application
+### 3 アプリの起動
 
-Create `.env.local` .
+`.env.local` ファイルを作成します。
 
 ```bash
 # .env.local
 
-# Enter the secret generated by running the command below
+# 下記のコマンドを叩いて作成されたシークレットを入力します。
 # node -e "console.log(crypto.randomBytes(32).toString('hex'))"
-# >  https://github.com/auth0/nextjs-auth0
+# > この方法は https://github.com/auth0/nextjs-auth0 を参照しています。
 AUTH0_SECRET=any-secure-value
 AUTH0_BASE_URL=http://localhost:3000
 
@@ -321,7 +323,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=get-from-supabase-dashboard
 SUPABASE_JWT_SECRET=get-from-supabase-dashboard
 ```
 
-Launch and access http://127.0.0.1:3000/. Start Next.js with `https`.
+起動して、 http://127.0.0.1:3000/ にアクセスします。 `https` で Next.js を起動します。
 
 ```bash
 pnpm dev:https
@@ -329,19 +331,19 @@ pnpm dev:https
 
 ![Login](https://github.com/user-attachments/assets/60e18305-431b-4a82-943e-6f799b306b87)
 
-Check your Gmail inbox for the Invitation Mail sent from Auth0. You should have received the invitation email - click the link in the email.
+Auth0から `Invitation Mail` を送ったGmailの受信ボックスを確認します。Invitation Mailが届いていると思いますので、そのメールの内容のリンクをクリックします。
 
 ![AcceptInvitation](https://github.com/user-attachments/assets/94995639-df4f-44af-a46f-1f163001aa9f)
 
-On the page that opens after clicking the link, enter `example-organization` and log in.
+リンクをクリックした先で、`example-organization` と入力して、ログインします。
 
 ![Login](https://github.com/user-attachments/assets/8b6a0cd6-4a23-48dd-807d-6413d39ecb86)
 
-After logging in successfully,
+ログインが完了したら、
 
-Access https://127.0.0.1:3000/protected. This page is only accessible when logged in with Auth0.
+https://127.0.0.1:3000/protected にアクセスします。このページにはAuth0でログインしていないとアクセスできないようになっています。
 
-If you can see the data you inserted into the Supabase todo table on this page, the setup was successful.
+このページで、SupabaseのtodoテーブルにInsertしたデータが表示されれば、成功です。
 
 ![AddItem](https://github.com/user-attachments/assets/cfb9c9f6-d366-4120-a4b3-ea61dba57d5a)
 
