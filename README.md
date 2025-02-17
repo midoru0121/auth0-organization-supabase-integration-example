@@ -1,4 +1,4 @@
-[日本語](https://github.com/midoru0121/auth0-supabase-integration-example/blob/main/README.ja.md)
+[日本語](https://github.com/midoru0121/auth0-supabase-integration-example/blob/main/README_ja.md)
 
 # nextjs-auth0-supabase-integration-example
 
